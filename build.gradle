@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.3'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'MembersSecurity'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // --- 실행 환경 (Implementation) ---
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // --- 도구 (Lombok & DevTools) ---
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // --- 테스트 (Testing) - 수정됨 ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'      // 필수 통합 테스트 스타터
+    testImplementation 'org.springframework.security:spring-security-test'    // 시큐리티/OAuth2 테스트용
+    testImplementation 'io.projectreactor:reactor-test'                       // WebFlux(리액티브) 테스트용
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // JWT (jjwt 0.12.5)
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+    implementation project(':EntityCom')
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
