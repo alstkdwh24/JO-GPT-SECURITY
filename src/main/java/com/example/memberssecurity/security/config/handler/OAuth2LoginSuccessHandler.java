@@ -31,7 +31,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-
         log.debug("Authentication success: {}", authentication);
         if (!(authentication instanceof OAuth2AuthenticationToken oauthToken)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid authentication type");
@@ -40,22 +39,25 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         SocialUserInfo userInfo = getSocialUserInfo(oauthToken);
         Members member = memberService.upsertOAuthUser(userInfo);
+        log.debug("Generated JWT token: {}", member);
 
+        // 1시간 유효 토큰 생성
         String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole().name(), 60 * 60 * 1000L);
-        // Electron 앱이 인식할 수 있도록 URL 뒤에 토큰을 붙여서 보냄
         String targetUrl = "jo-gpt://auth-success?token=" + accessToken;
-        log.debug("Redirecting to Electron app with token: {}", accessToken);
 
+        // 1. 쿠키 설정 (기존 로직 유지)
         Cookie cookie = new Cookie("ACCESS_TOKEN", accessToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
-
+        cookie.setSecure(false); // HTTPS 환경에서는 true로 변경 필요
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60);
         response.addCookie(cookie);
 
-log.debug("Redirecting to Electron app with token: {}", accessToken);
-        response.sendRedirect(targetUrl);
+        // 2. [개선] 직접 HTML 작성 대신 템플릿 페이지로 리다이렉트
+        // 브라우저가 커스텀 프로토콜을 차단하는 경우를 대비하여 토큰을 포함해 템플릿 페이지로 보냅니다.
+        response.sendRedirect("/home/GPT-Home?token=" + accessToken);
+
+        log.debug("Redirected to bridge page with token: {}", accessToken);
     }
 
     private static @NonNull SocialUserInfo getSocialUserInfo(OAuth2AuthenticationToken oauthToken) {

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>인증 처리 중</title>
+</head>
+<body>
+<div style="text-align:center; margin-top:50px;">
+    <h2 th:text="${error != null ? '인증 실패' : '인증 성공!'}">인증 처리 중...</h2>
+    <p th:text="${error != null ? '로그인 중 오류가 발생했습니다: ' + error : '잠시 후 자동으로 앱으로 이동합니다.'}">메시지</p>
+    <p th:if="${token != null}">
+        <a id="appLink" th:href="'jo-gpt://auth-success?token=' + ${token}">이동하지 않는다면 여기를 클릭하세요.</a>
+    </p>
+    <p th:if="${error != null}">
+        <a th:href="'jo-gpt://auth-fail?error=' + ${error}">앱으로 돌아가기</a>
+    </p>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const token = /*[[${token}]]*/ null;
+    const error = /*[[${error}]]*/ null;
+    let targetUrl = "";
+
+    if (token) {
+        targetUrl = "jo-gpt://auth-success?token=" + token;
+    } else if (error) {
+        targetUrl = "jo-gpt://auth-fail?error=" + encodeURIComponent(error);
+    }
+
+    if (targetUrl) {
+        // 즉시 앱 실행 시도
+        window.location.href = targetUrl;
+        // 실행 후 1.5초 뒤 브라우저 창/탭 닫기 시도
+        setTimeout(function() {
+            window.close();
+        }, 5000);
+    }
+    /*]]>*/
+</script>
+</body>
+</html>

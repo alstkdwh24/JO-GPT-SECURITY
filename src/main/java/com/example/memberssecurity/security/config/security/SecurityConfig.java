@@ -11,6 +11,8 @@ import com.example.memberssecurity.security.config.handler.OAuth2LoginSuccessHan
 import com.example.memberssecurity.security.config.jwt.JWTFilter;
 import com.example.memberssecurity.security.config.jwt.JWTUtils;
 import com.example.memberssecurity.security.config.jwt.LoginFilter;
+import com.example.memberssecurity.security.config.repository.HttpCookieOAuth2AuthorizationRequestRepository;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,7 +77,8 @@ public class SecurityConfig {
                     "http://localhost:8086",
                     "jo-gpt://",               // Electron이 로컬 파일을 로드할 때 쓰는 프로토콜
                     "null"                   // 일부 환경에서 Electron이 보내는 값
-            ));            corsConfiguration.setAllowedMethods(Collections.singletonList("*")); // 모든 HTTP 메서드 허용
+            ));
+            corsConfiguration.setAllowedMethods(Collections.singletonList("*")); // 모든 HTTP 메서드 허용
             corsConfiguration.setAllowCredentials(true);
             corsConfiguration.setAllowedHeaders(Collections.singletonList("*"));  //모든 헤더 허용
             corsConfiguration.setExposedHeaders(Collections.singletonList("Authorization")); // Authorization 헤더 노출
@@ -100,7 +103,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login/**", "/login/oauth2/**", "/", "/signUp", "/home/**", "/css/**", "/js/**", "/image/**", "/home/**", "/oauth2/**", "/login/oauth2/**", "/joGpt/**", "/oauth2/authorization/**", "/gptApi/**", "/favicon.ico", "/error").permitAll() // 로그인, 회원가입 등은 누구나 접근 가능
+                        .requestMatchers("/login/**", "/login/oauth2/**", "/", "/signUp", "/home/**", "/css/**", "/js/**", "/image/**", "/oauth2/**", "/joGpt/**", "/oauth2/authorization/**", "/gptApi/**", "/favicon.ico", "/error").permitAll() // 로그인, 회원가입 등은 누구나 접근 가능
                         .requestMatchers("/admin").hasAuthority("ROLE_ADMIN")  // /admin 경로는 ADMIN 권한이 필요
                         .anyRequest().authenticated())  //그 외의 요청은 인증된 사용자만 접근 가능
 
@@ -110,15 +113,31 @@ public class SecurityConfig {
                 // 로그인 필터 추가 (JWTFilter 실행 후 JWT 발급 처리)
                 .addFilterAfter(new LoginFilter(authenticationManager(), jwtUtils), JWTFilter.class)
 
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .logout(logout -> logout.logoutUrl("/login/logout").logoutSuccessUrl("/home/GPT-Home")
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) //IF_REQUIRED는 필요할 때만 세션을 생성한다는 것이다.
+                .logout(logout -> logout.logoutUrl("/login/logout")
+                        .addLogoutHandler((request, response, authentication) -> {jwtUtils.invalidateToken(authentication);
+                            Cookie accessTokenCookie = new Cookie("ACCESS_TOKEN", null);
+                            accessTokenCookie.setHttpOnly(true);
+                            accessTokenCookie.setSecure(true);
+                            accessTokenCookie.setPath("/");
+                            accessTokenCookie.setMaxAge(0);
+                            response.addCookie(accessTokenCookie);
+                        })
+                        .invalidateHttpSession(true)  //세션무효화
+                        .clearAuthentication(true)   // 인증 정보 삭제
                         .deleteCookies("ACCESS_TOKEN", "JSESSIONID")
-                        .invalidateHttpSession(true)
-                        .logoutSuccessHandler((request, response, authentication) -> response.setStatus(HttpServletResponse.SC_OK)))
-                .oauth2Login(oauth -> oauth.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-                        .successHandler(successHandler)
 
-                );
+                        .logoutSuccessHandler((request, response, authentication) -> response.setStatus(HttpServletResponse.SC_OK)))
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(auth -> auth.authorizationRequestRepository(new HttpCookieOAuth2AuthorizationRequestRepository()))
+                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .successHandler(successHandler)
+                        .failureHandler((request, response, exception) -> {
+                            // 인증 실패 시 에러 메시지를 포함하여 홈 화면으로 리다이렉트
+                            String errorMessage = exception.getMessage();
+                            String encodedMessage = java.net.URLEncoder.encode(errorMessage, java.nio.charset.StandardCharsets.UTF_8);
+                            response.sendRedirect("/home/GPT-Home?error=" + encodedMessage);
+                        }));
         return http.build();
     }
 }

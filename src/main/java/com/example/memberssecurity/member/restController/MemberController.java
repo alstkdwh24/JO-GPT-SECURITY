@@ -75,15 +75,12 @@ public class MemberController {
             // 현재 인증된 공급자 확인 (예시 logic)
             // GitHub 사용자인 경우
             if("kakao".equals(provider)) {
-                return "\"redirect:https://kauth.kakao.com/oauth/logout?client_id=\"" + kakaoClientId + "\"&redirect_uri=http://localhost:8086/login/logout";
-            }
+                return "redirect:https://kauth.kakao.com/oauth/logout?client_id=" + kakaoClientId + "&logout_redirect_uri=http://localhost:8086/home/GPT-Home";            }
             if ("github".equals(provider)) {
                 log.debug("Logging out from GitHub");
                 return "redirect:https://github.com/logout";
             }
 
-            // 만약 GitHub 사용자라면 GitHub 로그아웃 페이지나 메인으로 리다이렉트
-            return "redirect:/";
         }
         return "redirect:https://kauth.kakao.com/oauth/logout?client_id=" + kakaoClientId + "&redirect_uri=http://localhost:8086/login/logout";
     }
