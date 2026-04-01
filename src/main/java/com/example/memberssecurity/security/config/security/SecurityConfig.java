@@ -111,7 +111,7 @@ public class SecurityConfig {
                 .addFilterBefore(new JWTFilter(jwtUtils), UsernamePasswordAuthenticationFilter.class)
 
                 // 로그인 필터 추가 (JWTFilter 실행 후 JWT 발급 처리)
-                .addFilterAfter(new LoginFilter(authenticationManager(), jwtUtils), JWTFilter.class)
+                .addFilterAfter(new LoginFilter(authenticationManager(), jwtUtils), JWTFilter.class
 
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) //IF_REQUIRED는 필요할 때만 세션을 생성한다는 것이다.
                 .logout(logout -> logout.logoutUrl("/login/logout")
