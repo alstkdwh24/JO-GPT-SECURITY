@@ -48,7 +48,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         // 1. 쿠키 설정 (기존 로직 유지)
         Cookie cookie = new Cookie("ACCESS_TOKEN", accessToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // HTTPS 환경에서는 true로 변경 필요
+        cookie.setSecure(true); // HTTPS 환경에서는 true로 변경 필요
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60);
         response.addCookie(cookie);

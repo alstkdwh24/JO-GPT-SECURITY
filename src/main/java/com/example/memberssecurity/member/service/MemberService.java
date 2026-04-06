@@ -104,24 +104,31 @@ public class MemberService {
 
     public Members upsertOAuthUser(SocialUserInfo userInfo) {
 
+
         Members member = Members.builder()
                 .memberId(userInfo.getProvider() + "_" + userInfo.getProviderId())
                 .name(userInfo.getName())
                 .role(Role.ROLE_USER)
                 .build();
+        if(!memberRepository.existsByMemberId(member.getMemberId())) {
+            Members members = memberRepository.save(member);
 
-        Members members = memberRepository.save(member);
+            AuthProviders auth_providers = AuthProviders.builder()
+                    .provider(userInfo.getProvider())
+                    .providerId(userInfo.getProviderId())
+                    .member(members)
+                    .build();
 
-        AuthProviders auth_providers = AuthProviders.builder()
-                .provider(userInfo.getProvider())
-                .providerId(userInfo.getProviderId())
-                .member(members)
-                .build();
+            authProvidersRepository.save(auth_providers);
+            log.debug("OAuth2LoginSuccessHandler: userInfo={}", userInfo);
 
-        authProvidersRepository.save(auth_providers);
-        log.debug("OAuth2LoginSuccessHandler: userInfo={}", userInfo);
-
-        return members;
+            return members;
+        }else{
+            log.debug("OAuth2LoginSuccessHandler: memberId={}", member.getMemberId());
+            Long memberKey = memberRepository.findByMemberId(member.getMemberId()).get().getMemberKey();
+            log.debug("OAuth2LoginSuccessHandler: memberKey={}", memberKey);
+            return memberRepository.findByMemberKey(memberKey).get();
+        }
     }
 
     // MemberService.java

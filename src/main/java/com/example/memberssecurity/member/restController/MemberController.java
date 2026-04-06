@@ -12,9 +12,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/login")
@@ -56,33 +57,17 @@ public class MemberController {
     }
 
     @GetMapping("/logout")
-    public String logout(HttpServletRequest request, HttpServletResponse response) {
+    public void logout(HttpServletRequest request, HttpServletResponse response) throws IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         jWTUtils.invalidateToken(authentication);
+
         if (authentication != null) {
-            String provider = "";
-
-            if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
-                provider = oauthToken.getAuthorizedClientRegistrationId();
-            }   // 2. 일반 로그인(CustomUserDetails)인 경우 DB 연동 정보 확인 (필요 시)
-            else if (authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
-                // MemberService 등을 통해 해당 사용자의 AuthProviders 정보를 조회하여 provider 확인 가능
-                // provider = memberService.getProviderByMemberKey(userDetails.getMemberId());
-            }
-
             new SecurityContextLogoutHandler().logout(request, response, authentication);
-
-            // 현재 인증된 공급자 확인 (예시 logic)
-            // GitHub 사용자인 경우
-            if("kakao".equals(provider)) {
-                return "redirect:https://kauth.kakao.com/oauth/logout?client_id=" + kakaoClientId + "&logout_redirect_uri=http://localhost:8086/home/GPT-Home";            }
-            if ("github".equals(provider)) {
-                log.debug("Logging out from GitHub");
-                return "redirect:https://github.com/logout";
-            }
-
         }
-        return "redirect:https://kauth.kakao.com/oauth/logout?client_id=" + kakaoClientId + "&redirect_uri=http://localhost:8086/login/logout";
+
+        // @RestController에서는 "redirect:..." 문자열을 반환하면 리다이렉트되지 않음
+        // 직접 response를 사용하여 리다이렉트 시킴
+        response.sendRedirect("http://localhost:8086/home/GPT-Home");
     }
 
 }

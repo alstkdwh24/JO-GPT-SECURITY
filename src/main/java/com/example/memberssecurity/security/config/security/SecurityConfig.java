@@ -26,6 +26,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -73,15 +76,28 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         return request -> {
             CorsConfiguration corsConfiguration = new CorsConfiguration();
+
+            // 1. 허용할 Origin 설정
             corsConfiguration.setAllowedOrigins(Arrays.asList(
                     "http://localhost:8086",
-                    "jo-gpt://",               // Electron이 로컬 파일을 로드할 때 쓰는 프로토콜
-                    "null"                   // 일부 환경에서 Electron이 보내는 값
+                    "jo-gpt://",
+                    "file://"
             ));
-            corsConfiguration.setAllowedMethods(Collections.singletonList("*")); // 모든 HTTP 메서드 허용
+
+            // 2. 허용할 HTTP 메서드 (모두 허용)
+            corsConfiguration.setAllowedMethods(Collections.singletonList("*"));
+
+            // 3. 허용할 헤더 (중복 제거 및 명시적 설정)
+            // 모든 헤더를 허용하려면 Collections.singletonList("*") 하나만 사용하세요.
+            corsConfiguration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
+
+            // 4. 쿠키/인증 정보 포함 허용
             corsConfiguration.setAllowCredentials(true);
-            corsConfiguration.setAllowedHeaders(Collections.singletonList("*"));  //모든 헤더 허용
-            corsConfiguration.setExposedHeaders(Collections.singletonList("Authorization")); // Authorization 헤더 노출
+
+            // 5. 클라이언트(브라우저)에서 접근 가능한 헤더 노출
+            corsConfiguration.setExposedHeaders(Collections.singletonList("Authorization"));
+
+            // 6. Pre-flight 요청 캐싱 시간 (1시간)
             corsConfiguration.setMaxAge(3600L);
             return corsConfiguration;
 
@@ -94,7 +110,8 @@ public class SecurityConfig {
      * */
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, CustomOAuth2UserService customOAuth2UserService, OAuth2LoginSuccessHandler successHandler) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CustomOAuth2UserService customOAuth2UserService, OAuth2LoginSuccessHandler successHandler, ClientRegistrationRepository clientRegistrationRepository) throws Exception {
+        log.debug("clientRegistrationRepositoryss {}",clientRegistrationRepository);
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) //CORS 설정 적용
                 .csrf(AbstractHttpConfigurer::disable) //JWT 사용 시 CSRF 보호 비활성화
@@ -103,7 +120,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login/**", "/login/oauth2/**", "/", "/signUp", "/home/**", "/css/**", "/js/**", "/image/**", "/oauth2/**", "/joGpt/**", "/oauth2/authorization/**", "/gptApi/**", "/favicon.ico", "/error").permitAll() // 로그인, 회원가입 등은 누구나 접근 가능
+                        .requestMatchers("/login/**", "/login/oauth2/**", "/", "/signUp", "/home/**", "/css/**", "/js/**", "/image/**", "/oauth2/**", "/joGpt/**", "/oauth2/authorization/**", "/gptApi/**", "/favicon.ico", "/error","/JO_GPT_PROGRAM/**","/contents/**").permitAll() // 로그인, 회원가입 등은 누구나 접근 가능
                         .requestMatchers("/admin").hasAuthority("ROLE_ADMIN")  // /admin 경로는 ADMIN 권한이 필요
                         .anyRequest().authenticated())  //그 외의 요청은 인증된 사용자만 접근 가능
 
@@ -111,11 +128,12 @@ public class SecurityConfig {
                 .addFilterBefore(new JWTFilter(jwtUtils), UsernamePasswordAuthenticationFilter.class)
 
                 // 로그인 필터 추가 (JWTFilter 실행 후 JWT 발급 처리)
-                .addFilterAfter(new LoginFilter(authenticationManager(), jwtUtils), JWTFilter.class
+                .addFilterAfter(new LoginFilter(authenticationManager(), jwtUtils), JWTFilter.class)
 
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) //IF_REQUIRED는 필요할 때만 세션을 생성한다는 것이다.
                 .logout(logout -> logout.logoutUrl("/login/logout")
-                        .addLogoutHandler((request, response, authentication) -> {jwtUtils.invalidateToken(authentication);
+                        .addLogoutHandler((request, response, authentication) -> {
+                            jwtUtils.invalidateToken(authentication);
                             Cookie accessTokenCookie = new Cookie("ACCESS_TOKEN", null);
                             accessTokenCookie.setHttpOnly(true);
                             accessTokenCookie.setSecure(true);
@@ -123,13 +141,12 @@ public class SecurityConfig {
                             accessTokenCookie.setMaxAge(0);
                             response.addCookie(accessTokenCookie);
                         })
-                        .invalidateHttpSession(true)  //세션무효화
-                        .clearAuthentication(true)   // 인증 정보 삭제
-                        .deleteCookies("ACCESS_TOKEN", "JSESSIONID")
+//                        .clearAuthentication(true)   // 인증 정보 삭제
 
                         .logoutSuccessHandler((request, response, authentication) -> response.setStatus(HttpServletResponse.SC_OK)))
                 .oauth2Login(oauth2 -> oauth2
-                        .authorizationEndpoint(auth -> auth.authorizationRequestRepository(new HttpCookieOAuth2AuthorizationRequestRepository()))
+                        .authorizationEndpoint(auth -> auth.authorizationRequestRepository(new HttpCookieOAuth2AuthorizationRequestRepository())
+                                .authorizationRequestResolver(authorizationRequestResolver(clientRegistrationRepository)))
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(successHandler)
                         .failureHandler((request, response, exception) -> {
@@ -139,5 +156,32 @@ public class SecurityConfig {
                             response.sendRedirect("/home/GPT-Home?error=" + encodedMessage);
                         }));
         return http.build();
+    }
+
+    //리졸버 헬퍼 메서드 (클래스 내부에 정의되어 있어야 함)
+    private OAuth2AuthorizationRequestResolver authorizationRequestResolver(org.springframework.security.oauth2.client.registration.ClientRegistrationRepository clientRegistrationRepository) {
+        DefaultOAuth2AuthorizationRequestResolver authorizationRequestResolver =
+                new DefaultOAuth2AuthorizationRequestResolver(clientRegistrationRepository, "/oauth2/authorization");
+
+        authorizationRequestResolver.setAuthorizationRequestCustomizer(builder -> {
+            // 1. 현재 요청이 어떤 서비스(google, naver, kakao 등)인지 registrationId 확인
+            String registrationId = (String) builder.build().getAttributes()
+                    .get(org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID);
+
+            builder.additionalParameters(params -> {
+                System.out.println(">>> OAuth2 로그인 시도 중! 서비스: " + registrationId);
+
+                if ("naver".equalsIgnoreCase(registrationId)) {
+                    // 2. 네이버일 경우: prompt 대신 auth_type 사용
+                    params.remove("auth_type");
+                } else {
+                    // 3. 구글, 카카오 등일 경우: prompt 사용 (none 또는 select_account)
+                    // 앞에서 "none"을 원하셨으므로 "none"으로 설정하거나,
+                    // 계정 선택을 원하시면 "select_account"를 사용하세요.
+                    params.put("prompt", "select_account"); // "none" 대신 "select_account" 사용
+                                    }
+            });
+        });
+        return authorizationRequestResolver;
     }
 }
