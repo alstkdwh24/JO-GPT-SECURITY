@@ -4,6 +4,7 @@ import com.example.entitycom.entity.member.AuthProviders;
 import com.example.entitycom.entity.member.Members;
 import com.example.entitycom.entity.member.UserCredentials;
 import com.example.entitycom.enums.Role;
+
 import com.example.memberssecurity.member.dto.request.SignUpDto;
 import com.example.memberssecurity.member.dto.response.MemberDto;
 import com.example.memberssecurity.member.repository.jpa.AuthProviderRepository;
@@ -144,4 +145,5 @@ public class MemberService {
                         .age(member.getAge() == null ? 0 : member.getAge())
                         .build());
     }
+
 }
