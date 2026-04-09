@@ -80,6 +80,7 @@ public class SecurityConfig {
             // 1. 허용할 Origin 설정
             corsConfiguration.setAllowedOrigins(Arrays.asList(
                     "http://localhost:8086",
+                    "http://localhost:8082",
                     "jo-gpt://",
                     "file://"
             ));

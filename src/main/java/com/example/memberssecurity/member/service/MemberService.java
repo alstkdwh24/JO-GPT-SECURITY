@@ -77,31 +77,7 @@ public class MemberService {
         }
     }
 
-    /*
-     * Members 엔티티 생성 (비밀번호 암호화 적용)
-     * */
 
-    private Members createUserEntity(SignUpDto signUpDto) {
-        // 1. Members 엔티티 생성 (Builder 패턴 사용)
-        Members member = Members.builder()
-                .memberId(signUpDto.getMemberId())
-                .name(signUpDto.getName())
-                .phone(signUpDto.getPhone())
-                .role(signUpDto.getRole())
-                .gender(signUpDto.getGender())
-                .age(signUpDto.getAge())
-                .build();
-
-        // 2. User_credentials 엔티티 생성
-        // passwordEncoder를 사용하여 비밀번호를 암호화합니다.
-        UserCredentials userCredentials = UserCredentials.builder()
-                .memberKey(member.getMemberKey())
-                .userPw(passwordEncoder.encode(signUpDto.getUserPw()))
-                .build();
-
-        // 3. 생성된 member 객체 반환
-        return member;
-    }
 
     public Members upsertOAuthUser(SocialUserInfo userInfo) {
 
@@ -128,7 +104,7 @@ public class MemberService {
             log.debug("OAuth2LoginSuccessHandler: memberId={}", member.getMemberId());
             Long memberKey = memberRepository.findByMemberId(member.getMemberId()).get().getMemberKey();
             log.debug("OAuth2LoginSuccessHandler: memberKey={}", memberKey);
-            return memberRepository.findByMemberKey(memberKey).get();
+            return memberRepository.findByMemberKey(memberKey).orElseThrow(()-> new RuntimeException("Member not found with key: " + memberKey));
         }
     }
 
