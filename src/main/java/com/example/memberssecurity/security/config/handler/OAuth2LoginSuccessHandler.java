@@ -42,7 +42,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         log.debug("Generated JWT token: {}", member);
 
         // 1시간 유효 토큰 생성
-        String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole().name(), 60 * 60 * 1000L);
+        String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole(), 60 * 60 * 1000L);
         String targetUrl = "jo-gpt://auth-success?token=" + accessToken;
 
         // 1. 쿠키 설정 (기존 로직 유지)
