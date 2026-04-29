@@ -1,9 +1,23 @@
 package com.example.memberssecurity.security.config.handler;
 
-import com.example.memberssecurity.security.config.dto.social.dto.*;
-import com.example.memberssecurity.security.config.jwt.JWTUtils;
+import java.io.IOException;
+import java.util.Map;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+
 import com.example.entitycom.entity.member.Members;
 import com.example.memberssecurity.member.service.MemberService;
+import com.example.memberssecurity.security.config.dto.social.dto.GithubUserInfo;
+import com.example.memberssecurity.security.config.dto.social.dto.GoogleUserInfo;
+import com.example.memberssecurity.security.config.dto.social.dto.KakaoUserInfo;
+import com.example.memberssecurity.security.config.dto.social.dto.NaverUserInfo;
+import com.example.memberssecurity.security.config.dto.social.dto.SocialUserInfo;
+import com.example.memberssecurity.security.config.jwt.JWTUtils;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,14 +25,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -30,7 +36,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     // - 서버 템플릿이면 "http://localhost:8086/auth/success" 같은 페이지
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+            Authentication authentication) throws IOException, ServletException {
         log.debug("Authentication success: {}", authentication);
         if (!(authentication instanceof OAuth2AuthenticationToken oauthToken)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid authentication type");
@@ -43,7 +50,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // 1시간 유효 토큰 생성
         String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole(), 60 * 60 * 1000L);
-        String targetUrl = "jo-gpt://auth-success?token=" + accessToken;
+        // String targetUrl = "jo-gpt://auth-success?token=" + accessToken;
 
         // 1. 쿠키 설정 (기존 로직 유지)
         Cookie cookie = new Cookie("ACCESS_TOKEN", accessToken);
@@ -55,7 +62,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // 2. [개선] 직접 HTML 작성 대신 템플릿 페이지로 리다이렉트
         // 브라우저가 커스텀 프로토콜을 차단하는 경우를 대비하여 토큰을 포함해 템플릿 페이지로 보냅니다.
-        response.sendRedirect("/home/GPT-Home?token=" + accessToken);
+        response.sendRedirect("http://localhost:5173?token=" + accessToken);
 
         log.debug("Redirected to bridge page with token: {}", accessToken);
     }

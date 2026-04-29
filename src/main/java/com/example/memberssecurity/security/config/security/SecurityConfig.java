@@ -75,7 +75,7 @@ public class SecurityConfig {
             corsConfiguration.setAllowedOrigins(Arrays.asList(
                     "http://localhost:8086",
                     "http://localhost:8082",
-                    "jo-gpt://"));
+                    "http://localhost:5173"));
 
             // 2. 허용할 HTTP 메서드 (모두 허용)
             corsConfiguration.setAllowedMethods(Collections.singletonList("*"));
@@ -83,7 +83,7 @@ public class SecurityConfig {
             // 3. 허용할 헤더 (중복 제거 및 명시적 설정)
             // 모든 헤더를 허용하려면 Collections.singletonList("*") 하나만 사용하세요.
             corsConfiguration.setAllowedHeaders(
-                    Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
+                    Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With", "X-Model"));
 
             // 4. 쿠키/인증 정보 포함 허용
             corsConfiguration.setAllowCredentials(true);
@@ -170,7 +170,7 @@ public class SecurityConfig {
                             String errorMessage = exception.getMessage();
                             String encodedMessage = java.net.URLEncoder.encode(errorMessage,
                                     java.nio.charset.StandardCharsets.UTF_8);
-                            response.sendRedirect("/home/GPT-Home?error=" + encodedMessage);
+                            response.sendRedirect("http://localhost:5173?error=" + encodedMessage);
                         }));
         return http.build();
     }
