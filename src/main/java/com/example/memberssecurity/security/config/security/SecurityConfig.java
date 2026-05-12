@@ -3,6 +3,7 @@ package com.example.memberssecurity.security.config.security;
 import java.util.Arrays;
 import java.util.Collections;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,6 +32,7 @@ import com.example.memberssecurity.security.config.jwt.JWTUtils;
 import com.example.memberssecurity.security.config.jwt.LoginFilter;
 import com.example.memberssecurity.security.config.repository.HttpCookieOAuth2AuthorizationRequestRepository;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +47,14 @@ public class SecurityConfig {
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JWTUtils jwtUtils;
     private final CustomOAuth2UserService customOAuth2UserService;
+    @Value("${spring.memberSecurity.url}")
+    private String memberSecurityUrl;
 
+    @Value("${spring.joGptProgram.url}")
+    private String joGptProgramUrl;
+
+    @Value("${spring.frontend.url}")
+    private String frontendUrl;
     /*
      * Spring Security의 AuthenticationManager 를 빈으로 등록
      * - 로그인 시 사용자의 인증(Authentication)을 담당
@@ -73,9 +82,11 @@ public class SecurityConfig {
 
             // 1. 허용할 Origin 설정
             corsConfiguration.setAllowedOrigins(Arrays.asList(
-                    "http://localhost:8086",
-                    "http://localhost:8082",
-                    "http://localhost:5173"));
+                    memberSecurityUrl,
+                    joGptProgramUrl,
+                    frontendUrl,
+                    "http://agentcloudllm.me:5173",
+                    "https://agentcloudllm.me"));
 
             // 2. 허용할 HTTP 메서드 (모두 허용)
             corsConfiguration.setAllowedMethods(Collections.singletonList("*"));
@@ -83,13 +94,14 @@ public class SecurityConfig {
             // 3. 허용할 헤더 (중복 제거 및 명시적 설정)
             // 모든 헤더를 허용하려면 Collections.singletonList("*") 하나만 사용하세요.
             corsConfiguration.setAllowedHeaders(
-                    Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With", "X-Model"));
+                    Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With", "X-Model",
+                            "X-Custom-Prompt"));
 
             // 4. 쿠키/인증 정보 포함 허용
             corsConfiguration.setAllowCredentials(true);
 
             // 5. 클라이언트(브라우저)에서 접근 가능한 헤더 노출
-            corsConfiguration.setExposedHeaders(Collections.singletonList("Authorization"));
+            corsConfiguration.setExposedHeaders(Arrays.asList("Authorization", "Set-Cookie"));
 
             // 6. Pre-flight 요청 캐싱 시간 (1시간)
             corsConfiguration.setMaxAge(3600L);
@@ -118,10 +130,11 @@ public class SecurityConfig {
                                                                                                             // 출처에서만 허용
 
                 .authorizeHttpRequests(auth -> auth
-
+                        // 비동기 dispatch(SSE 등)는 SecurityContext 전파 없이 재진입하므로 무조건 허용
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/login/**", "/login/oauth2/**", "/", "/signUp", "/home/**", "/css/**",
                                 "/js/**", "/image/**", "/oauth2/**", "/joGpt/**", "/oauth2/authorization/**",
-                                "/favicon.ico", "/error")
+                                "/favicon.ico", "/error", "/auth/**")
                         .permitAll() // 로그인, 회원가입 등은 누구나 접근 가능
                         .requestMatchers("/JO_GPT_PROGRAM/**", "/contents/**", "/gptApi/**").hasAuthority("ROLE_USER") // /JO_GPT_PROGRAM/**,
                                                                                                                        // /contents/**,

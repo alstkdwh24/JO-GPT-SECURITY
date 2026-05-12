@@ -6,4 +6,9 @@ public interface SocialUserInfo {
     String getEmail();
     String getImageUrl();
     String getProvider();
+
+    // 닉네임 설정 모달에서 기본 제안값으로 사용할 닉네임 (기본값: getName())
+    default String getSuggestedNickname() {
+        return getName();
+    }
 }

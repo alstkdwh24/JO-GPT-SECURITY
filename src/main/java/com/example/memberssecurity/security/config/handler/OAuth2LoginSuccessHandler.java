@@ -1,8 +1,11 @@
 package com.example.memberssecurity.security.config.handler;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -34,6 +37,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final JWTUtils jwtUtils;
     private final MemberService memberService;
     // - 서버 템플릿이면 "http://localhost:8086/auth/success" 같은 페이지
+    @Value("${spring.frontend.url}")
+    private String frontendUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -45,24 +50,37 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         }
 
         SocialUserInfo userInfo = getSocialUserInfo(oauthToken);
-        Members member = memberService.upsertOAuthUser(userInfo);
-        log.debug("Generated JWT token: {}", member);
+        MemberService.OAuthResult result = memberService.upsertOAuthUser(userInfo);
+        Members member = result.member();
+        log.debug("OAuth2 로그인 성공: member={}, isNew={}", member, result.isNew());
 
         // 1시간 유효 토큰 생성
         String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole(), 60 * 60 * 1000L);
-        // String targetUrl = "jo-gpt://auth-success?token=" + accessToken;
 
-        // 1. 쿠키 설정 (기존 로직 유지)
+        // 쿠키 설정
         Cookie cookie = new Cookie("ACCESS_TOKEN", accessToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true); // HTTPS 환경에서는 true로 변경 필요
+        cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60);
         response.addCookie(cookie);
 
-        // 2. [개선] 직접 HTML 작성 대신 템플릿 페이지로 리다이렉트
-        // 브라우저가 커스텀 프로토콜을 차단하는 경우를 대비하여 토큰을 포함해 템플릿 페이지로 보냅니다.
-        response.sendRedirect("http://localhost:5173?token=" + accessToken);
+        // 닉네임이 임시값(memberId 형식)인 경우 닉네임 설정 화면 표시
+        String tempMemberId = userInfo.getProvider() + "_" + userInfo.getProviderId();
+        boolean needsNickname = result.isNew() || tempMemberId.equals(result.member().getNickname());
+
+        String redirectUrl = frontendUrl + "?token=" + accessToken;
+        if (needsNickname) {
+            redirectUrl += "&needsNickname=true";
+            // 네이버만 기존 닉네임 사용 여부를 선택할 수 있도록 socialNickname 전달
+            if ("naver".equals(userInfo.getProvider())) {
+                String suggested = userInfo.getSuggestedNickname();
+                if (suggested != null && !suggested.isBlank()) {
+                    redirectUrl += "&socialNickname=" + URLEncoder.encode(suggested, StandardCharsets.UTF_8);
+                }
+            }
+        }
+        response.sendRedirect(redirectUrl);
 
         log.debug("Redirected to bridge page with token: {}", accessToken);
     }

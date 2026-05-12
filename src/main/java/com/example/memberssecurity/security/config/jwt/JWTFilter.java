@@ -1,8 +1,16 @@
 package com.example.memberssecurity.security.config.jwt;
 
+import java.io.IOException;
+
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import com.example.entitycom.entity.member.Members;
 import com.example.entitycom.enums.Role;
 import com.example.memberssecurity.security.config.dto.CustomUserDetails;
+
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
@@ -12,12 +20,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -101,7 +103,6 @@ public class JWTFilter extends OncePerRequestFilter {
 
             // SecurityContext에 인증 정보 저장 (STATELESS 모드)
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            filterChain.doFilter(request, response);
 
             /*
              * JWT의 세 번째 부분인 **서명**가 서버가 가지고 있는 비밀키로 검증했을때 일치하지 않는 경우 발생합니다.
@@ -138,6 +139,7 @@ public class JWTFilter extends OncePerRequestFilter {
             response.getWriter().write("토큰이 만료되었습니다.");
             return;
         }
+        filterChain.doFilter(request, response);
 
     }
 

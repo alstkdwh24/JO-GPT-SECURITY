@@ -47,6 +47,14 @@ public class NaverUserInfo implements SocialUserInfo{
         return "naver";
     }
 
+    // 네이버 프로필 별명 (네이버에서 설정한 닉네임)
+    @Override
+    public String getSuggestedNickname() {
+        String nickname = getString("nickname");
+        // 별명이 없으면 실명으로 대체
+        return (nickname != null && !nickname.isBlank()) ? nickname : getString("name");
+    }
+
     private String getString(String key) {
         Object value = response.get(key);
         return value != null ? value.toString() : null;

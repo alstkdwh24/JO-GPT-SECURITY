@@ -11,10 +11,7 @@ import org.springframework.context.annotation.ComponentScan;
 public class MembersSecurityApplication {
 
     public static void main(String[] args) {
-        new SpringApplicationBuilder(MembersSecurityApplication.class)
-                .properties(
-                        "spring.config.location=file:C:/courage3/JavaRealProject/potfolio_project/AI_Universal_Controller/backend/MembersSecurity/src/main/resources/application.properties")
-                .run(args);
+        new SpringApplicationBuilder(MembersSecurityApplication.class).run(args);
     }
 
 }

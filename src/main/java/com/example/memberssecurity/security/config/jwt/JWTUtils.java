@@ -26,6 +26,8 @@ public class JWTUtils {
 
     private final RedisTemplate<String, String> redisTemplate;
 
+    private static final long REFRESH_EXPIRATION = 1000L * 60 * 60; // 1시간
+
     /*
      * 생성자에서 application.properties에 저장된 SecretKey 값을 가져와 설정
      */
@@ -36,6 +38,17 @@ public class JWTUtils {
 
         this.redisTemplate = redisTemplate;
     }
+
+    // 리프레시 토큰 생성 메서드
+    public String createRefreshToken(Long memberKey) {
+        return Jwts.builder()
+                .subject(String.valueOf(memberKey))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + REFRESH_EXPIRATION))
+                .signWith(secretKey)
+                .compact();
+    }
+
     /* 토큰 검증 메서드 */
 
     public void validate(String token) {
