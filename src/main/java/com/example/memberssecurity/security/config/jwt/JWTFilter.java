@@ -1,16 +1,8 @@
 package com.example.memberssecurity.security.config.jwt;
 
-import java.io.IOException;
-
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.filter.OncePerRequestFilter;
-
 import com.example.entitycom.entity.member.Members;
 import com.example.entitycom.enums.Role;
 import com.example.memberssecurity.security.config.dto.CustomUserDetails;
-
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
@@ -20,6 +12,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -42,10 +40,7 @@ public class JWTFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!isCompactJwt(token)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+
 
         if ((token == null || token.isEmpty()) && request.getCookies() != null) {
             for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
@@ -58,10 +53,7 @@ public class JWTFilter extends OncePerRequestFilter {
             }
         }
 
-        if (token == null || token.isEmpty()) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+
 
         // JWT 기본 형식 가드: header.payload.signature
         if (token.chars().filter(ch -> ch == '.').count() != 2) {
@@ -164,7 +156,4 @@ public class JWTFilter extends OncePerRequestFilter {
     }
 
     // jwt 토큰이 기본 형식인 header.payload.signature인지 간단히 체크하는 메서드
-    private boolean isCompactJwt(String token) {
-        return token.chars().filter(ch -> ch == '.').count() == 2;
-    }
 }
