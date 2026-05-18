@@ -1,22 +1,19 @@
 package com.example.memberssecurity.security.config.jwt;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
-
-import javax.crypto.SecretKey;
-
+import com.example.entitycom.enums.Role;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import com.example.entitycom.enums.Role;
-
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @Slf4j
@@ -26,7 +23,8 @@ public class JWTUtils {
 
     private final RedisTemplate<String, String> redisTemplate;
 
-    private static final long REFRESH_EXPIRATION = 1000L * 60 * 60; // 1시간
+    // 1일
+    private static final long REFRESH_EXPIRATION = 1000L * 60 * 60 * 24;
 
     /*
      * 생성자에서 application.properties에 저장된 SecretKey 값을 가져와 설정
@@ -40,9 +38,10 @@ public class JWTUtils {
     }
 
     // 리프레시 토큰 생성 메서드
-    public String createRefreshToken(Long memberKey) {
+    public String createRefreshToken(Long memberKey,Role role) {
         return Jwts.builder()
-                .subject(String.valueOf(memberKey))
+                .claim("memberId",memberKey)
+                .claim("role",role.name())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + REFRESH_EXPIRATION))
                 .signWith(secretKey)
@@ -105,7 +104,6 @@ public class JWTUtils {
 
     public String createToken(Long memberId, Role role, Long expiredMs) {
 
-        log.debug("카카오 토큰 생성 단계{}", memberId);
         return Jwts.builder()
                 .claim("memberId", memberId)
                 .claim("role", role.name())

@@ -8,6 +8,7 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -30,44 +31,29 @@ public class JWTFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         log.debug("Request URI: {}", request.getRequestURI());
 
-        // resolveToken 메서드에서 Authorization 헤더 또는 쿠키에서 토큰을 추출합니다.
         String token = resolveToken(request);
+        String refreshToken = resolveRefreshToken(request);
         log.debug("Validating JWT token: {}", token);
+        log.debug("Validating JWT refreshToken: {}", refreshToken);
 
-        // [중요] 토큰이 없으면 그냥 다음 필터로 넘깁니다. (permitAll 경로를 위해)
+        // 토큰이 없으면 다음 필터로 (permitAll 경로)
         if (token == null || token.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-
-
-        if ((token == null || token.isEmpty()) && request.getCookies() != null) {
-            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
-                if ("ACCESS_TOKEN".equals(cookie.getName())) {
-                    token = cookie.getValue();
-                    if (token != null)
-                        token = token.trim();
-                    break;
-                }
-            }
-        }
-
-
-
-        // JWT 기본 형식 가드: header.payload.signature
+        // JWT 기본 형식 가드
         if (token.chars().filter(ch -> ch == '.').count() != 2) {
-            filterChain.doFilter(request, response); // 또는 401 응답
+            filterChain.doFilter(request, response);
             return;
         }
 
-        /* *//* 토큰 만료 서명 검증 */
         try {
-            jwtUtils.validate(token); // 여기서 서명/만료 검증 수행
-            // 블랙리스트 확인 추가
+            jwtUtils.validate(token);
+
+            // 블랙리스트 확인
             if (jwtUtils.isBlacklisted(token)) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("로그아웃된 토큰입니다.");
+                writeErrorResponse(response, "{\"code\":\"BLACKLISTED\",\"message\":\"로그아웃된 토큰입니다.\"}");
                 return;
             }
 
@@ -75,85 +61,116 @@ public class JWTFilter extends OncePerRequestFilter {
             String roleStr = jwtUtils.getRole(token);
             Role role = Role.valueOf(roleStr);
 
-            Members members = Members.builder()
-                    .memberId("1`2u019481209834198023")
-                    .memberKey(memberId)
-                    .role(role)
-                    .build();
+            setAuthentication(memberId, role);
+            log.info("JWT 인증 성공 memberId={}", memberId);
 
-            CustomUserDetails customUserDetails = new CustomUserDetails(members);
-            Authentication authentication = new UsernamePasswordAuthenticationToken(customUserDetails, null,
-                    customUserDetails.getAuthorities());
+        } catch (ExpiredJwtException e) {
+            log.error("JWT 만료: {}", e.getMessage());
 
-            if (authentication != null) {
+            // Refresh Token 으로 재발급 시도
+            if (refreshToken != null && !refreshToken.isEmpty()) {
+                try {
+                    jwtUtils.validate(refreshToken);
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-                log.info("JWT auth user={}, authorities={}",
-                        authentication.getName(),
-                        authentication.getAuthorities());
+                    Long memberKey = jwtUtils.getUsername(refreshToken);
+                    String roleStr = jwtUtils.getRole(refreshToken);
+                    Role role = Role.valueOf(roleStr);
+
+                    // 새 Access Token 발급
+                    String newAccessToken = jwtUtils.createToken(
+                            memberKey, role, 1000L * 60 * 60
+                    );
+
+                    // 새 Access Token 쿠키 저장
+                    Cookie accessCookie = new Cookie("ACCESS_TOKEN", newAccessToken);
+                    accessCookie.setHttpOnly(true);
+                    accessCookie.setSecure(true);
+                    accessCookie.setPath("/");
+                    accessCookie.setMaxAge(60 * 60);
+                    response.addCookie(accessCookie);
+                    response.setHeader("Authorization", "Bearer " + newAccessToken);
+
+
+                    setAuthentication(memberKey, role);
+                    log.info("Refresh Token으로 재발급 성공 memberId={}", memberKey);
+
+                    filterChain.doFilter(request, response);
+                    return;
+
+                } catch (Exception ex) {
+                    log.error("Refresh Token 검증 실패: {}", ex.getMessage());
+                }
             }
 
-            // SecurityContext에 인증 정보 저장 (STATELESS 모드)
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            /*
-             * JWT의 세 번째 부분인 **서명**가 서버가 가지고 있는 비밀키로 검증했을때 일치하지 않는 경우 발생합니다.
-             * MalformedJwtException JWT의 구조 자체가 올바르지 않을 때 발생합니다. JWT는 원래
-             * Header.Payload;Signature 형식을 가져야 하는데
-             * 이 형식을 벋어난 경우
-             */
-        } catch (ExpiredJwtException e) {
-            log.error("JWT expired: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setCharacterEncoding("UTF-8");
-            response.setContentType("application/json; charset=UTF-8");
-            response.getWriter().write("{\"code\":\"EXPIRED_TOKEN\",\"message\":\"토큰이 만료되었습니다.\"}");
+            // Refresh Token 도 만료 또는 없음
+            writeErrorResponse(response, "{\"code\":\"EXPIRED_TOKEN\",\"message\":\"토큰이 만료되었습니다.\"}");
             return;
 
         } catch (SignatureException e) {
-            log.error("JWT invalid signature: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setCharacterEncoding("UTF-8");
-            response.setContentType("application/json; charset=UTF-8");
-            response.getWriter().write("{\"code\":\"INVALID_SIGNATURE\",\"message\":\"토큰 서명이 유효하지 않습니다.\"}");
+            log.error("JWT 서명 오류: {}", e.getMessage());
+            writeErrorResponse(response, "{\"code\":\"INVALID_SIGNATURE\",\"message\":\"토큰 서명이 유효하지 않습니다.\"}");
             return;
 
         } catch (MalformedJwtException e) {
-            log.error("JWT malformed: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setCharacterEncoding("UTF-8");
-            response.setContentType("application/json; charset=UTF-8");
-            response.getWriter().write("{\"code\":\"MALFORMED_TOKEN\",\"message\":\"토큰 형식이 올바르지 않습니다.\"}");
+            log.error("JWT 형식 오류: {}", e.getMessage());
+            writeErrorResponse(response, "{\"code\":\"MALFORMED_TOKEN\",\"message\":\"토큰 형식이 올바르지 않습니다.\"}");
             return;
+
         } catch (Exception e) {
-            log.error("JWT validation error: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("토큰이 만료되었습니다.");
+            log.error("JWT 검증 오류: {}", e.getMessage());
+            writeErrorResponse(response, "{\"code\":\"INVALID_TOKEN\",\"message\":\"토큰이 유효하지 않습니다.\"}");
             return;
         }
-        filterChain.doFilter(request, response);
 
+        filterChain.doFilter(request, response);
     }
 
-    private String resolveToken(HttpServletRequest request) {
-        log.debug("Auth Header: {}", request.getHeader("Authorization"));
-        String authorization = request.getHeader("Authorization");
+    private void setAuthentication(Long memberId, Role role) {
+        Members members = Members.builder()
+                .memberId(String.valueOf(memberId))
+                .memberKey(memberId)
+                .role(role)
+                .build();
 
-        if (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
-            return authorization.substring(7).trim();
-        }
+        CustomUserDetails customUserDetails = new CustomUserDetails(members);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+            customUserDetails, null, customUserDetails.getAuthorities()
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
 
-        if (request.getCookies() != null) {
-            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
-                if ("ACCESS_TOKEN".equals(cookie.getName())) {
+    private void writeErrorResponse(HttpServletResponse response, String message) throws IOException {
+        if (response.isCommitted()) return;
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json; charset=UTF-8");
+        response.getWriter().write(message);
+    }
+
+    private String resolveCookieToken(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals(cookieName)) {
                     String token = cookie.getValue();
                     return token == null ? null : token.trim();
                 }
             }
         }
-
         return null;
     }
 
-    // jwt 토큰이 기본 형식인 header.payload.signature인지 간단히 체크하는 메서드
+    private String resolveToken(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return authorization.substring(7).trim();
+        }
+        return resolveCookieToken(request, "ACCESS_TOKEN");
+
+    }
+
+    private String resolveRefreshToken(HttpServletRequest request) {
+        return resolveCookieToken(request, "REFRESH_TOKEN");
+
+    }
 }

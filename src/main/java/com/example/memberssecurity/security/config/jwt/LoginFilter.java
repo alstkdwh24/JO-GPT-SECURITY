@@ -1,9 +1,12 @@
 package com.example.memberssecurity.security.config.jwt;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Iterator;
-
+import com.example.entitycom.enums.Role;
+import com.example.memberssecurity.security.config.dto.CustomUserDetails;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -11,14 +14,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.example.entitycom.enums.Role;
-import com.example.memberssecurity.security.config.dto.CustomUserDetails;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Iterator;
 
 @Slf4j
 public class LoginFilter extends UsernamePasswordAuthenticationFilter {
@@ -60,12 +58,14 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         assert customUserDetails != null;
         Long memberId = customUserDetails.getMemberId();
 
+
         // 사용자 역할 (Role) 조회
         Collection<? extends GrantedAuthority> authorities = auth.getAuthorities();
         Iterator<? extends GrantedAuthority> iterator = authorities.iterator();
         GrantedAuthority grantedAuthority = iterator.next();
 
         Role role = Role.valueOf(grantedAuthority.getAuthority());
+        String refreshToke = jwtUtils.createRefreshToken(memberId, role);
         String token = jwtUtils.createToken(memberId, role, 60 * 60 * 1000L); // 1시간 유효 토큰 생성
 
         // JWT를 쿠키에 저장
@@ -75,6 +75,13 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60);
         response.addCookie(cookie);
+
+        Cookie refreshCookie = new Cookie("REFRESH_TOKEN", refreshToke);
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(true);
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(60 * 60 * 24 * 7);
+        response.addCookie(refreshCookie);
 
         response.addHeader("Authorization", "Bearer " + token); // JWT 를 Authorization 헤더에 추가
         // ===== 여기부터가 중요 =====

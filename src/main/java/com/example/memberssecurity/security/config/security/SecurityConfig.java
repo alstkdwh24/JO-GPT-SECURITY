@@ -31,6 +31,7 @@ import com.example.memberssecurity.security.config.jwt.JWTFilter;
 import com.example.memberssecurity.security.config.jwt.JWTUtils;
 import com.example.memberssecurity.security.config.jwt.LoginFilter;
 import com.example.memberssecurity.security.config.repository.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.example.memberssecurity.security.config.filter.ClientTypeFilter;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.Cookie;
@@ -147,6 +148,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()) // 그 외의 요청은 인증된 사용자만 접근 가능
 
                 // JWT 필터 추가 (기존 UsernamePasswordAuthenticationFilter 이전에 실행)
+                .addFilterBefore(new ClientTypeFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new JWTFilter(jwtUtils), UsernamePasswordAuthenticationFilter.class)
 
                 // 로그인 필터 추가 (JWTFilter 실행 후 JWT 발급 처리)

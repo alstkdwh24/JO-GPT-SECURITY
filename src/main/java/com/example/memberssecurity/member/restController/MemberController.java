@@ -22,13 +22,11 @@ import java.util.Map;
 @RequestMapping("/login")
 @Slf4j
 public class MemberController {
-@Value("${MEMBER_SECURITY_URL}")
-    private final String memberSecurityUrl;
-
+private final String memberSecurityUrl;
     private final MemberService memberService;
     private final JWTUtils jWTUtils;
 
-    public MemberController(String memberSecurityUrl, MemberService memberService, JWTUtils jWTUtils) {
+    public MemberController(@Value("${MEMBER_SECURITY_URL}") String memberSecurityUrl, MemberService memberService, JWTUtils jWTUtils) {
         this.memberSecurityUrl = memberSecurityUrl;
         this.memberService = memberService;
         this.jWTUtils = jWTUtils;
