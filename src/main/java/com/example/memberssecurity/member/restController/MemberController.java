@@ -1,9 +1,13 @@
 package com.example.memberssecurity.member.restController;
 
+import com.example.entitycom.entity.member.Members;
+import com.example.memberssecurity.member.dto.request.LoginDto;
 import com.example.memberssecurity.member.dto.request.SignUpDto;
+import com.example.memberssecurity.member.dto.response.MemberDto;
 import com.example.memberssecurity.member.service.MemberService;
 import com.example.memberssecurity.security.config.dto.CustomUserDetails;
 import com.example.memberssecurity.security.config.jwt.JWTUtils;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -32,10 +36,33 @@ private final String memberSecurityUrl;
         this.jWTUtils = jWTUtils;
     }
 
+    @PostMapping("/auth/login")
+    public ResponseEntity<MemberDto> login(@RequestBody  LoginDto dto, HttpServletResponse response){
+        log.debug("사용자 인증{}" , dto);
+
+        Members member=memberService.login(dto);
+        String token=jWTUtils.createToken(member.getMemberKey(),member.getRole(), 1000L * 60 * 60 * 3 );
+
+        Cookie cookie = new Cookie("ACCESS_TOKEN", token); // 👈 쿠키에 담기
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(60 * 60 * 3);
+        response.addCookie(cookie);
+
+        return ResponseEntity.ok(MemberDto.builder()
+                .memberId(member.getMemberId())
+                .nickname(member.getNickname())
+                .role(member.getRole())
+                .build());    }
+
     @PostMapping("/signUp")
     public ResponseEntity<String> signUp(@RequestBody SignUpDto dto) {
-        memberService.signUp(dto);
-        return ResponseEntity.ok("success");
+        try {
+            memberService.signUp(dto);
+            return ResponseEntity.ok("success");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
     }
 
     @GetMapping("/myInfo")

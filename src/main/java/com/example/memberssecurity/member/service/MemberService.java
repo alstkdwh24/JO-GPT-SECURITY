@@ -1,30 +1,32 @@
 package com.example.memberssecurity.member.service;
 
-import java.util.Objects;
-import java.util.Optional;
-
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.example.entitycom.entity.member.AuthProviders;
 import com.example.entitycom.entity.member.Members;
 import com.example.entitycom.entity.member.UserCredentials;
 import com.example.entitycom.enums.Role;
+import com.example.memberssecurity.member.dto.request.LoginDto;
 import com.example.memberssecurity.member.dto.request.SignUpDto;
 import com.example.memberssecurity.member.dto.response.MemberDto;
 import com.example.memberssecurity.member.repository.jpa.AuthProviderRepository;
 import com.example.memberssecurity.member.repository.jpa.MemberRepository;
 import com.example.memberssecurity.member.repository.jpa.UserCredentialsRepository;
 import com.example.memberssecurity.security.config.dto.social.dto.SocialUserInfo;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class MemberService {
+public class MemberService implements UserDetailsService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
@@ -79,6 +81,26 @@ public class MemberService {
         }
     }
 
+    public Members login(LoginDto dto) {
+
+//  이렇게 해야 해요 - memberId로 조회하고 결과를 members에 담아요
+        Members members = memberRepository.findByMemberIdWithCredentials(dto.getMemberId())
+                .orElseThrow(() -> new RuntimeException("아이디 비번이 올바르지가 않습니다."));
+        log.debug("memberId: {}", dto.getMemberId()); // 👈 이걸 추가해보세요
+        log.debug("userPw: {}", dto.getUserPw());
+
+        //  결과를 확인해야 해요
+        if (!passwordEncoder.matches(dto.getUserPw(), members.getUserCredentials().getUserPw())) {
+            throw new RuntimeException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+        return members;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        return null;
+    }
+
     public record OAuthResult(Members member, boolean isNew) {
     }
 
@@ -112,7 +134,7 @@ public class MemberService {
                     false);
         }
     }
-
+    // 닉네임 설정
     @Transactional
     public void updateNickname(Long memberKey, String nickname) {
         Members member = memberRepository.findByMemberKey(memberKey)
