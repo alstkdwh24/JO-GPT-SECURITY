@@ -33,6 +33,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     // - 서버 템플릿이면 "http://localhost:8086/auth/success" 같은 페이지
     @Value("${spring.frontend.url}")
     private String frontendUrl;
+    @Value("${expiration_time}")
+    private Long expirationTime;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -49,7 +51,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         log.debug("OAuth2 로그인 성공: member={}, isNew={}", member, result.isNew());
 
         // 1시간 유효 토큰 생성
-        String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole(),  1000L * 5);
+        String accessToken = jwtUtils.createToken(member.getMemberKey(), member.getRole(),  expirationTime);
         String refreshToken = jwtUtils.createRefreshToken(member.getMemberKey(), member.getRole());
 
         Cookie refreshCookie = new Cookie("REFRESH_TOKEN", refreshToken);

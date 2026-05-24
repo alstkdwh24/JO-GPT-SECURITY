@@ -76,7 +76,6 @@ public class MemberService implements UserDetailsService {
 
         // existsByMemberId를 사용하여 효율적으로 존재 여부 확인
         if (memberRepository.existsByMemberId(memberId)) {
-            log.warn("중복된 아이디 가입 시도: {}", memberId);
             throw new RuntimeException("이미 존재하는 아이디입니다.");
         }
     }
@@ -86,8 +85,7 @@ public class MemberService implements UserDetailsService {
 //  이렇게 해야 해요 - memberId로 조회하고 결과를 members에 담아요
         Members members = memberRepository.findByMemberIdWithCredentials(dto.getMemberId())
                 .orElseThrow(() -> new RuntimeException("아이디 비번이 올바르지가 않습니다."));
-        log.debug("memberId: {}", dto.getMemberId()); // 👈 이걸 추가해보세요
-        log.debug("userPw: {}", dto.getUserPw());
+
 
         //  결과를 확인해야 해요
         if (!passwordEncoder.matches(dto.getUserPw(), members.getUserCredentials().getUserPw())) {
@@ -123,10 +121,8 @@ public class MemberService implements UserDetailsService {
                     .member(members)
                     .build());
 
-            log.debug("OAuth2 신규 가입: userInfo={}", userInfo);
             return new OAuthResult(members, true);
         } else {
-            log.debug("OAuth2 기존 회원: memberId={}", memberId);
             Long memberKey = memberRepository.findByMemberId(memberId).get().getMemberKey();
             return new OAuthResult(
                     memberRepository.findByMemberKey(memberKey)

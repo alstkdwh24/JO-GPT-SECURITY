@@ -33,8 +33,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         String token = resolveToken(request);
         String refreshToken = resolveRefreshToken(request);
-        log.debug("Validating JWT token: {}", token);
-        log.debug("Validating JWT refreshToken: {}", refreshToken);
+
 
         // 토큰이 없으면 다음 필터로 (permitAll 경로)
         if (token == null || token.isEmpty()) {
@@ -62,7 +61,6 @@ public class JWTFilter extends OncePerRequestFilter {
             Role role = Role.valueOf(roleStr);
 
             setAuthentication(memberId, role);
-            log.info("JWT 인증 성공 memberId={}", memberId);
 
         } catch (ExpiredJwtException e) {
             log.error("JWT 만료: {}", e.getMessage());
@@ -92,7 +90,6 @@ public class JWTFilter extends OncePerRequestFilter {
 
 
                     setAuthentication(memberKey, role);
-                    log.info("Refresh Token으로 재발급 성공 memberId={}", memberKey);
 
                     filterChain.doFilter(request, response);
                     return;

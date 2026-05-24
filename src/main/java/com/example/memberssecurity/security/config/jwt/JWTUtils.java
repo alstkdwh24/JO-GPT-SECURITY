@@ -24,7 +24,7 @@ public class JWTUtils {
     private final RedisTemplate<String, String> redisTemplate;
 
     // 1일
-    private static final long REFRESH_EXPIRATION = 1000L * 60 * 60 * 24;
+    private static final long REFRESH_EXPIRATION = 1000L * 60 * 60 * 24 * 7;
 
     /*
      * 생성자에서 application.properties에 저장된 SecretKey 값을 가져와 설정

@@ -38,7 +38,6 @@ private final String memberSecurityUrl;
 
     @PostMapping("/auth/login")
     public ResponseEntity<MemberDto> login(@RequestBody  LoginDto dto, HttpServletResponse response){
-        log.debug("사용자 인증{}" , dto);
 
         Members member=memberService.login(dto);
         String token=jWTUtils.createToken(member.getMemberKey(),member.getRole(), 1000L * 60 * 60 * 3 );
