@@ -48,7 +48,7 @@ public class AuthValidateController {
             Long memberKey = jwtUtils.getUsername(refreshToken);
             String role = jwtUtils.getRole(refreshToken);
             String newAccessToken = jwtUtils.createToken(
-                    memberKey, Role.valueOf(role), 1000L * 60 * 60
+                    memberKey, Role.valueOf(role), 1000L * 60 * 60 *3
             );
 
             // 새 Access Token 쿠키에 저장
@@ -56,7 +56,7 @@ public class AuthValidateController {
             accessCookie.setHttpOnly(true);
             accessCookie.setSecure(true);
             accessCookie.setPath("/");
-            accessCookie.setMaxAge(60 * 60);
+            accessCookie.setMaxAge(60 * 60 * 24 * 7);
             response.addCookie(accessCookie);
             response.setHeader("Authorization", "Bearer " + newAccessToken);
 

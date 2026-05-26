@@ -76,7 +76,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
                     // 새 Access Token 발급
                     String newAccessToken = jwtUtils.createToken(
-                            memberKey, role, 1000L * 60 * 60
+                            memberKey, role, 1000L * 60 * 60 *3
                     );
 
                     // 새 Access Token 쿠키 저장
@@ -84,7 +84,7 @@ public class JWTFilter extends OncePerRequestFilter {
                     accessCookie.setHttpOnly(true);
                     accessCookie.setSecure(true);
                     accessCookie.setPath("/");
-                    accessCookie.setMaxAge(60 * 60);
+                    accessCookie.setMaxAge(60 * 60 * 24 * 7);
                     response.addCookie(accessCookie);
                     response.setHeader("Authorization", "Bearer " + newAccessToken);
 
