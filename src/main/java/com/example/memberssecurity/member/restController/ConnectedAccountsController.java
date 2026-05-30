@@ -12,6 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestTemplate;
 
 @RestController
 @RequiredArgsConstructor
@@ -19,6 +21,11 @@ import java.io.IOException;
 public class ConnectedAccountsController {
 
     private final ConnectedAccountsService connectedAccountsService;
+
+    @Value("${jo-gpt-program-url:http://localhost:8082}")
+    private String joGptProgramUrl;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     private Long getMemberKey() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -51,6 +58,13 @@ public class ConnectedAccountsController {
 
     @DeleteMapping("/{accountKey}")
     public ResponseEntity<?> disconnect(@PathVariable Long accountKey) {
+        // Redis 캐시 삭제 (JO_GPT_PROGRAM 서버에 요청)
+        try {
+            Long memberKey = getMemberKey();
+            restTemplate.delete(joGptProgramUrl + "/contents/internal/google-token-cache/" + memberKey);
+        } catch (Exception e) {
+            // 캐시 삭제 실패해도 연동 해제는 진행
+        }
         connectedAccountsService.disconnect(accountKey);
         return ResponseEntity.ok().build();
     }
