@@ -6,14 +6,16 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.client.RestTemplate;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,8 +23,7 @@ import org.springframework.web.client.RestTemplate;
 public class ConnectedAccountsController {
 
     private final ConnectedAccountsService connectedAccountsService;
-
-    @Value("${jo-gpt-program-url:http://localhost:8082}")
+    @Value("${spring.joGptProgram.url:http://localhost:8082}")
     private String joGptProgramUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -61,7 +62,12 @@ public class ConnectedAccountsController {
         // Redis 캐시 삭제 (JO_GPT_PROGRAM 서버에 요청)
         try {
             Long memberKey = getMemberKey();
-            restTemplate.delete(joGptProgramUrl + "/contents/internal/google-token-cache/" + memberKey);
+            restTemplate.exchange(
+                    joGptProgramUrl + "/contents/internal/google-token-cache/" + memberKey,
+                    HttpMethod.DELETE,
+                    HttpEntity.EMPTY,
+                    Void.class
+            );
         } catch (Exception e) {
             // 캐시 삭제 실패해도 연동 해제는 진행
         }

@@ -76,9 +76,9 @@ public class AuthValidateController {
     }
 
     // 중복 제거용 private 메서드
-    private UserInfoDto buildUserInfoDto(Long memberId, String role) {
+    private UserInfoDto buildUserInfoDto(Long memberKey, String role) {
         return UserInfoDto.builder()
-                .memberId(String.valueOf(memberId))
+                .memberId(String.valueOf(memberKey))
                 .role(Role.valueOf(role))
                 .build();
     }
