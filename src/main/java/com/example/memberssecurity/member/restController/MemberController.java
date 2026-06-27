@@ -44,6 +44,7 @@ private final String memberSecurityUrl;
 
         Cookie cookie = new Cookie("ACCESS_TOKEN", token); // 👈 쿠키에 담기
         cookie.setHttpOnly(true);
+        cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60 * 3);
         response.addCookie(cookie);

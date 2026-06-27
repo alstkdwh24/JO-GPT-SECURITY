@@ -25,7 +25,15 @@ public class AuthValidateController {
 
     @GetMapping("/validate")
     public ResponseEntity<UserInfoDto> getMethodName(@RequestHeader(value = "Authorization", required = false) String token, HttpServletRequest request, HttpServletResponse response) {
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.status(401).build();
+        }
+
         String rawToken = token.replace("Bearer ", "");
+
+        if (rawToken.isBlank()) {
+            return ResponseEntity.status(401).build();
+        }
 
         if (jwtUtils.isTokenExpired(rawToken)) {
             log.debug("token: {}", token);
